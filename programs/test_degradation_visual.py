@@ -17,22 +17,25 @@ from image_degradation import (
 from ultralytics import YOLO
 
 
+import glob
+import torch
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Test visuel de dégradation d'image pour YOLO USV")
     parser.add_argument(
-        "--model",
+        "--model", "-m",
         type=str,
-        default="best4/best4.pt",
-        help="Chemin vers le modèle YOLO (.pt) (défaut: best4/best4.pt)"
+        default="best4_2",
+        help="Modèle YOLO à tester : alias ('best4', 'best4_2'), nom ou chemin (défaut: best4_2)"
     )
     parser.add_argument(
-        "--image",
+        "--image", "-i",
         type=str,
         default="images and video/bateau_test.jpg",
         help="Chemin vers l'image test (défaut: images and video/bateau_test.jpg)"
     )
     parser.add_argument(
-        "--output_dir",
+        "--output_dir", "-o",
         type=str,
         default="results_degradation/visual",
         help="Dossier de sortie pour les comparaisons (défaut: results_degradation/visual)"
@@ -50,11 +53,61 @@ def parse_args():
         default=[0.25, 0.50, 0.75],
         help="Niveaux de sévérité à tester (défaut: 0.25 0.50 0.75)"
     )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="0" if torch.cuda.is_available() else "cpu",
+        help="Device : '0' (GPU CUDA) ou 'cpu' (défaut: auto-détection)"
+    )
     return parser.parse_args()
 
 
+def resolve_model_path(model_arg: str, base_dir: str) -> str:
+    """Résout le chemin d'un modèle YOLO (alias 'best4', 'best4_2', nom de fichier ou chemin)."""
+    if not model_arg:
+        model_arg = "best4_2"
+    if os.path.isabs(model_arg) and os.path.exists(model_arg):
+        return os.path.abspath(model_arg)
+        
+    cwd = os.getcwd()
+    parent_dir = os.path.dirname(base_dir)
+    grandparent_dir = os.path.dirname(parent_dir)
+    search_dirs = [cwd, base_dir, parent_dir, grandparent_dir]
+    
+    names = [model_arg]
+    if not model_arg.lower().endswith(".pt"):
+        names.append(model_arg + ".pt")
+        
+    candidates = []
+    for name in names:
+        candidates.append(name)
+        for s_dir in search_dirs:
+            candidates.append(os.path.join(s_dir, name))
+            candidates.append(os.path.join(s_dir, "best4", name))
+            candidates.append(os.path.join(s_dir, "models", name))
+            
+    bare_name = os.path.splitext(os.path.basename(model_arg))[0]
+    for s_dir in search_dirs:
+        candidates.append(os.path.join(s_dir, bare_name, f"{bare_name}.pt"))
+        if bare_name == "best4_2":
+            candidates.append(os.path.join(s_dir, "best4", "best4_2.pt"))
+            
+    for c in candidates:
+        if os.path.exists(c) and os.path.isfile(c):
+            return os.path.abspath(c)
+            
+    target_pattern = bare_name + ".pt" if not model_arg.lower().endswith(".pt") else os.path.basename(model_arg)
+    for root in [parent_dir, grandparent_dir]:
+        if os.path.exists(root):
+            matches = glob.glob(os.path.join(root, "**", target_pattern), recursive=True)
+            if matches:
+                return os.path.abspath(matches[0])
+                
+    return os.path.abspath(model_arg)
+
+
 def resolve_path(base_dir: str, rel_or_abs_path: str) -> str:
-    """Résout un chemin relativement au dossier courant ou au dossier du script."""
+    """Résout un chemin d'image ou de dossier."""
     if os.path.isabs(rel_or_abs_path) and os.path.exists(rel_or_abs_path):
         return rel_or_abs_path
     
@@ -62,20 +115,10 @@ def resolve_path(base_dir: str, rel_or_abs_path: str) -> str:
         rel_or_abs_path,
         os.path.join(base_dir, rel_or_abs_path),
         os.path.join(os.path.dirname(base_dir), rel_or_abs_path),
-        os.path.join(os.path.dirname(os.path.dirname(base_dir)), rel_or_abs_path)
+        os.path.join(os.path.dirname(os.path.dirname(base_dir)), rel_or_abs_path),
+        os.path.join(os.path.dirname(base_dir), "images and video", os.path.basename(rel_or_abs_path)),
+        os.path.join(base_dir, "images and video", os.path.basename(rel_or_abs_path))
     ]
-    
-    if "best4.pt" in rel_or_abs_path:
-        candidates.extend([
-            os.path.join(os.path.dirname(base_dir), "best4", "best4.pt"),
-            os.path.join(base_dir, "best4", "best4.pt"),
-            os.path.join(os.path.dirname(os.path.dirname(base_dir)), "best4.pt")
-        ])
-    if "bateau_test.jpg" in rel_or_abs_path:
-        candidates.extend([
-            os.path.join(os.path.dirname(base_dir), "images and video", "bateau_test.jpg"),
-            os.path.join(base_dir, "images and video", "bateau_test.jpg")
-        ])
         
     for c in candidates:
         if os.path.exists(c):
@@ -306,7 +349,7 @@ def run_visual_tests(
 if __name__ == "__main__":
     args = parse_args()
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    model_resolved = resolve_path(script_dir, args.model)
+    model_resolved = resolve_model_path(args.model, script_dir)
     image_resolved = resolve_path(script_dir, args.image)
     output_resolved = resolve_path(script_dir, args.output_dir)
     

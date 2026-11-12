@@ -6,38 +6,108 @@ import time
 
 import cv2
 import numpy as np
+import torch
 from ultralytics import YOLO
 
-# Define and parse user input arguments
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--model', help='Path to YOLO model file (example: "runs/detect/train/weights/best.pt")',
-                    required=True)
-parser.add_argument('--source', help='Image source, can be image file ("test.jpg"), \
+
+def resolve_model_path(model_arg: str, base_dir: str = SCRIPT_DIR) -> str:
+    """Résout le chemin d'un modèle YOLO (alias 'best4', 'best4_2', nom de fichier ou chemin)."""
+    if not model_arg:
+        model_arg = "best4"
+    if os.path.isabs(model_arg) and os.path.exists(model_arg):
+        return os.path.abspath(model_arg)
+        
+    cwd = os.getcwd()
+    parent_dir = os.path.dirname(base_dir)
+    grandparent_dir = os.path.dirname(parent_dir)
+    search_dirs = [cwd, base_dir, parent_dir, grandparent_dir]
+    
+    names = [model_arg]
+    if not model_arg.lower().endswith(".pt"):
+        names.append(model_arg + ".pt")
+        
+    candidates = []
+    for name in names:
+        candidates.append(name)
+        for s_dir in search_dirs:
+            candidates.append(os.path.join(s_dir, name))
+            candidates.append(os.path.join(s_dir, "best4", name))
+            candidates.append(os.path.join(s_dir, "models", name))
+            
+    bare_name = os.path.splitext(os.path.basename(model_arg))[0]
+    for s_dir in search_dirs:
+        candidates.append(os.path.join(s_dir, bare_name, f"{bare_name}.pt"))
+        if bare_name == "best4_2":
+            candidates.append(os.path.join(s_dir, "best4", "best4_2.pt"))
+            
+    for c in candidates:
+        if os.path.exists(c) and os.path.isfile(c):
+            return os.path.abspath(c)
+            
+    target_pattern = bare_name + ".pt" if not model_arg.lower().endswith(".pt") else os.path.basename(model_arg)
+    for root in [parent_dir, grandparent_dir]:
+        if os.path.exists(root):
+            matches = glob.glob(os.path.join(root, "**", target_pattern), recursive=True)
+            if matches:
+                return os.path.abspath(matches[0])
+                
+    return os.path.abspath(model_arg)
+
+
+def resolve_source_path(source_arg: str, base_dir: str = SCRIPT_DIR) -> str:
+    """Résout le chemin de la source si c'est un fichier ou dossier local."""
+    if not source_arg or source_arg.startswith(('usb', 'picamera')) or source_arg.isdigit():
+        return source_arg
+    if os.path.isabs(source_arg) and os.path.exists(source_arg):
+        return os.path.abspath(source_arg)
+    candidates = [
+        source_arg,
+        os.path.join(base_dir, source_arg),
+        os.path.join(os.path.dirname(base_dir), source_arg),
+        os.path.join(os.path.dirname(base_dir), "images and video", os.path.basename(source_arg)),
+        os.path.join(base_dir, "images and video", os.path.basename(source_arg))
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return os.path.abspath(c)
+    return source_arg
+
+
+# Define and parse user input arguments
+parser = argparse.ArgumentParser(description="Détection d'objets YOLO pour USV")
+parser.add_argument('--model', '-m', help='Modèle YOLO : alias ("best4", "best4_2") ou chemin vers le fichier .pt (défaut: "best4")',
+                    default="best4")
+parser.add_argument('--source', '-s', help='Image source, can be image file ("test.jpg"), \
                     image folder ("test_dir"), video file ("testvid.mp4"), or index of USB camera ("usb0")', 
                     required=True)
 parser.add_argument('--thresh', help='Minimum confidence threshold for displaying detected objects (example: "0.4")',
-                    default=0.5)
+                    type=float, default=0.5)
 parser.add_argument('--resolution', help='Resolution in WxH to display inference results at (example: "640x480"), \
                     otherwise, match source resolution',
                     default=None)
+parser.add_argument('--device', help='Device : "0" (GPU CUDA) ou "cpu" (défaut: auto)',
+                    default="0" if torch.cuda.is_available() else "cpu")
 parser.add_argument('--record', help='Record results from video or webcam and save it as "demo1.avi". Must specify --resolution argument to record.',
                     action='store_true')
 
 args = parser.parse_args()
 
-
-# Parse user inputs
-model_path = args.model
-img_source = args.source
+# Parse and resolve user inputs
+model_path = resolve_model_path(args.model)
+img_source = resolve_source_path(args.source)
 min_thresh = args.thresh
 user_res = args.resolution
 record = args.record
 
 # Check if model file exists and is valid
-if (not os.path.exists(model_path)):
-    print('ERROR: Model path is invalid or model was not found. Make sure the model filename was entered correctly.')
+if not os.path.exists(model_path):
+    print(f'ERROR: Model "{args.model}" was not found (resolved path: {model_path}).')
     sys.exit(0)
+
+print(f"🔄 Modèle chargé : {model_path}")
+print(f"🎬 Source        : {img_source}")
 
 # Load the model into memory and get labemap
 model = YOLO(model_path, task='detect')
@@ -167,7 +237,7 @@ while True:
         frame = cv2.resize(frame,(resW,resH))
 
     # Run inference on frame
-    results = model(frame, verbose=False)
+    results = model(frame, device=args.device, verbose=False)
 
     # Extract results
     detections = results[0].boxes

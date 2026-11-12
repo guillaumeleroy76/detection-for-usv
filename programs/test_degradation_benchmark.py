@@ -9,6 +9,7 @@ from typing import List, Tuple, Dict, Any, Optional
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
 
 from image_degradation import (
     load_image_safe,
@@ -20,25 +21,25 @@ from ultralytics import YOLO
 def parse_args():
     parser = argparse.ArgumentParser(description="Benchmark quantitatif de dégradation YOLO pour USV")
     parser.add_argument(
-        "--model",
+        "--model", "-m",
         type=str,
-        default="best4/best4.pt",
-        help="Chemin vers le modèle YOLO (.pt) (défaut: best4/best4.pt)"
+        default="best4",
+        help="Modèle YOLO à tester : alias ('best4', 'best4_2'), nom ou chemin (défaut: best4)"
     )
     parser.add_argument(
-        "--dataset_test",
+        "--dataset_test", "-d",
         type=str,
         default="Dataset_Global/test",
         help="Dossier du split test contenant 'images' et 'labels' (défaut: Dataset_Global/test)"
     )
     parser.add_argument(
-        "--output_dir",
+        "--output_dir", "-o",
         type=str,
         default="results_degradation/benchmark",
         help="Dossier où sauvegarder les résultats CSV et graphiques (défaut: results_degradation/benchmark)"
     )
     parser.add_argument(
-        "--sample_size",
+        "--sample_size", "-n",
         type=int,
         default=50,
         help="Nombre d'images à échantillonner pour le benchmark (défaut: 50, mettre 0 pour toutes)"
@@ -63,6 +64,12 @@ def parse_args():
         help="Niveaux de sévérité à tester (défaut: 0.0 0.20 0.40 0.60 0.80)"
     )
     parser.add_argument(
+        "--device",
+        type=str,
+        default="0" if torch.cuda.is_available() else "cpu",
+        help="Device : '0' (GPU CUDA) ou 'cpu' (défaut: auto-détection)"
+    )
+    parser.add_argument(
         "--seed",
         type=int,
         default=42,
@@ -71,27 +78,62 @@ def parse_args():
     return parser.parse_args()
 
 
+def resolve_model_path(model_arg: str, base_dir: str) -> str:
+    """Résout le chemin d'un modèle YOLO (alias 'best4', 'best4_2', nom de fichier ou chemin)."""
+    if not model_arg:
+        model_arg = "best4"
+    if os.path.isabs(model_arg) and os.path.exists(model_arg):
+        return os.path.abspath(model_arg)
+        
+    cwd = os.getcwd()
+    parent_dir = os.path.dirname(base_dir)
+    grandparent_dir = os.path.dirname(parent_dir)
+    search_dirs = [cwd, base_dir, parent_dir, grandparent_dir]
+    
+    names = [model_arg]
+    if not model_arg.lower().endswith(".pt"):
+        names.append(model_arg + ".pt")
+        
+    candidates = []
+    for name in names:
+        candidates.append(name)
+        for s_dir in search_dirs:
+            candidates.append(os.path.join(s_dir, name))
+            candidates.append(os.path.join(s_dir, "best4", name))
+            candidates.append(os.path.join(s_dir, "models", name))
+            
+    bare_name = os.path.splitext(os.path.basename(model_arg))[0]
+    for s_dir in search_dirs:
+        candidates.append(os.path.join(s_dir, bare_name, f"{bare_name}.pt"))
+        if bare_name == "best4_2":
+            candidates.append(os.path.join(s_dir, "best4", "best4_2.pt"))
+            
+    for c in candidates:
+        if os.path.exists(c) and os.path.isfile(c):
+            return os.path.abspath(c)
+            
+    target_pattern = bare_name + ".pt" if not model_arg.lower().endswith(".pt") else os.path.basename(model_arg)
+    for root in [parent_dir, grandparent_dir]:
+        if os.path.exists(root):
+            matches = glob.glob(os.path.join(root, "**", target_pattern), recursive=True)
+            if matches:
+                return os.path.abspath(matches[0])
+                
+    return os.path.abspath(model_arg)
+
+
 def resolve_path(base_dir: str, path_str: str) -> str:
-    """Résout un chemin de façon robuste quel que soit le dossier courant."""
+    """Résout un chemin de dataset de façon robuste quel que soit le dossier courant."""
     if os.path.isabs(path_str) and os.path.exists(path_str):
         return path_str
     
-    # 1. Vérification directe
     candidates = [
+        path_str,
         os.path.join(base_dir, path_str),
         os.path.join(os.path.dirname(base_dir), path_str),
-        os.path.join(os.path.dirname(os.path.dirname(base_dir)), path_str),
-        path_str
+        os.path.join(os.path.dirname(os.path.dirname(base_dir)), path_str)
     ]
     
-    # 2. Heuristiques spécifiques selon le nom
-    filename = os.path.basename(path_str)
-    if "best4.pt" in path_str:
-        candidates.extend([
-            os.path.join(os.path.dirname(base_dir), "best4", "best4.pt"),
-            os.path.join(base_dir, "best4", "best4.pt"),
-            os.path.join(os.path.dirname(os.path.dirname(base_dir)), "best4.pt")
-        ])
     if "Dataset_Global" in path_str:
         suffix = path_str.split("Dataset_Global")[-1].lstrip("\\/")
         candidates.extend([
@@ -203,7 +245,8 @@ def run_benchmark(
     conf_thresh: float,
     iou_thresh: float,
     severities: List[float],
-    seed: int
+    seed: int,
+    device: str = "cpu"
 ):
     """Exécute l'évaluation benchmark multi-dégradations."""
     os.makedirs(output_dir, exist_ok=True)
@@ -233,6 +276,7 @@ def run_benchmark(
     print("=" * 70)
     print(f"• Modèle YOLO           : {model_path}")
     print(f"• Dataset Test          : {dataset_test_dir} ({sample_size}/{total_available} images)")
+    print(f"• Device                : {device} ({'GPU CUDA' if device == '0' else 'CPU'})")
     print(f"• Seuil Confiance       : {conf_thresh:.2f}")
     print(f"• Seuil IoU             : {iou_thresh:.2f}")
     print(f"• Sévérités à évaluer   : {severities}")
@@ -288,7 +332,7 @@ def run_benchmark(
                     eval_img = degrade_image(img, deg_key, severity=sev, seed=seed + img_idx)
                 
                 # Inférence YOLO
-                results = model(eval_img, conf=conf_thresh, verbose=False)[0]
+                results = model(eval_img, conf=conf_thresh, device=device, verbose=False)[0]
                 
                 # Extraction des prédictions
                 preds = []
@@ -393,7 +437,8 @@ def run_benchmark(
         ax.axhline(0.5, color="gray", linestyle=":", linewidth=1.2, label="Seuil critique (50%)" if metric_key == "Rappel" else "")
         ax.legend(fontsize=9, loc="best")
 
-    plt.suptitle("Impact des Dégradations Marines sur les Performances de YOLO (best4)", fontsize=15, fontweight="bold", y=0.98)
+    model_name = os.path.basename(model_path)
+    plt.suptitle(f"Impact des Dégradations Marines sur les Performances de YOLO ({model_name})", fontsize=15, fontweight="bold", y=0.98)
     
     plot_path = os.path.join(output_dir, "courbes_performances_degradation.png")
     plt.savefig(plot_path, dpi=250, bbox_inches="tight")
@@ -425,7 +470,7 @@ def run_benchmark(
 if __name__ == "__main__":
     args = parse_args()
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    model_resolved = resolve_path(script_dir, args.model)
+    model_resolved = resolve_model_path(args.model, script_dir)
     dataset_resolved = resolve_path(script_dir, args.dataset_test)
     output_resolved = resolve_path(script_dir, args.output_dir)
     
@@ -437,5 +482,6 @@ if __name__ == "__main__":
         conf_thresh=args.conf,
         iou_thresh=args.iou_thresh,
         severities=args.severities,
-        seed=args.seed
+        seed=args.seed,
+        device=args.device
     )
