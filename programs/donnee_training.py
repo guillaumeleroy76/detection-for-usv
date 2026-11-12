@@ -2,21 +2,35 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 
-# 1. Chemin vers ton fichier results.csv (mets à jour le nom du dossier de ton run si besoin)
-csv_path = "results.csv"
+# Recherche automatique de results.csv
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+POSSIBLE_PATHS = [
+    os.path.join(SCRIPT_DIR, "..", "best4", "before_transformations", "results_training_before_transformations", "results.csv"),
+    os.path.join(SCRIPT_DIR, "best4", "before_transformations", "results_training_before_transformations", "results.csv"),
+    "best4/before_transformations/results_training_before_transformations/results.csv",
+    "before_transformations/results_training_before_transformations/results.csv",
+    "results_training_before_transformations/results.csv",
+    "results.csv"
+]
 
-if not os.path.exists(csv_path):
-    print(f"❌ Fichier introuvable : {csv_path}. Vérifie le chemin de ton dossier de run.")
+csv_path = None
+for p in POSSIBLE_PATHS:
+    if os.path.exists(p):
+        csv_path = os.path.abspath(p)
+        break
+
+if not csv_path:
+    print(f"❌ Fichier results.csv introuvable dans les chemins prévus.")
+    print(f"Dossier inspecté : {SCRIPT_DIR}")
 else:
-    # 2. Charger les données et nettoyer les espaces superflus dans les en-têtes
+    print(f"📊 Chargement des données d'entraînement depuis : {csv_path}")
     df = pd.read_csv(csv_path)
     df.columns = df.columns.str.strip()
 
-    # 3. Création de la figure pour de belles courbes
+    # Création de la figure pour de belles courbes
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
     fig.suptitle("Suivi de l'entraînement YOLO - Évolution des performances", fontsize=16, fontweight='bold')
 
-    # Style global des courbes
     plt.style.use('seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'default')
 
     epochs = df['epoch']
@@ -69,11 +83,12 @@ else:
     else:
         ax4.set_visible(False)
 
-    # Ajustement de l'affichage et sauvegarde
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    output_filename = "courbes_entrainement.png"
+    output_filename = os.path.join(os.path.dirname(csv_path), "courbes_entrainement.png")
     plt.savefig(output_filename, dpi=300)
     print(f"✅ Belles courbes générées et sauvegardées sous : {output_filename}")
     
-    # Affichage direct dans le notebook
-    plt.show()
+    try:
+        plt.show()
+    except Exception:
+        pass

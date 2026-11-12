@@ -3,11 +3,33 @@ import cv2
 import time
 import json
 
-# 1. Charger ton modèle entraîné
-model = YOLO("best4.pt")
+import os
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def find_file(filename_candidates):
+    for candidate in filename_candidates:
+        if os.path.exists(candidate):
+            return os.path.abspath(candidate)
+    return filename_candidates[0]
+
+# 1. Charger ton modèle entraîné (résolution auto)
+model_path = find_file([
+    os.path.join(SCRIPT_DIR, "..", "best4", "best4.pt"),
+    os.path.join(SCRIPT_DIR, "best4", "best4.pt"),
+    "best4/best4.pt",
+    "best4.pt"
+])
+print(f"🔄 Modèle chargé : {model_path}")
+model = YOLO(model_path)
 
 # 2. Ouvrir la source vidéo (ou remplacer par 0 pour la caméra en direct)
-video_path = "images and video/modelisation_3d_boat.mp4"
+video_path = find_file([
+    os.path.join(SCRIPT_DIR, "..", "images and video", "modelisation_3d_boat.mp4"),
+    os.path.join(SCRIPT_DIR, "images and video", "modelisation_3d_boat.mp4"),
+    "images and video/modelisation_3d_boat.mp4",
+    "modelisation_3d_boat.mp4"
+])
 cap = cv2.VideoCapture(video_path)
 
 if not cap.isOpened():

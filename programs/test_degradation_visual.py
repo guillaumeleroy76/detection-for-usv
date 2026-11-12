@@ -1,13 +1,4 @@
-"""
-Script: test_degradation_visual.py
-Description: Évaluation visuelle et qualitative de la robustesse du modèle YOLO aux dégradations d'images
-Projet: USV Cerema - IMT Atlantique
-Auteur: Guillaume
 
-Ce script applique différentes dégradations (gouttes d'eau, pixels noirs/masquage, flou, etc.)
-à des intensités variables sur une image test, exécute l'inférence YOLO, et génère des planches
-comparatives côté-à-côte avec boîtes englobantes et scores de confiance.
-"""
 
 import os
 import sys
@@ -31,8 +22,8 @@ def parse_args():
     parser.add_argument(
         "--model",
         type=str,
-        default="models/best4.pt",
-        help="Chemin vers le modèle YOLO (.pt) (défaut: models/best4.pt)"
+        default="best4/best4.pt",
+        help="Chemin vers le modèle YOLO (.pt) (défaut: best4/best4.pt)"
     )
     parser.add_argument(
         "--image",
@@ -64,16 +55,32 @@ def parse_args():
 
 def resolve_path(base_dir: str, rel_or_abs_path: str) -> str:
     """Résout un chemin relativement au dossier courant ou au dossier du script."""
-    if os.path.isabs(rel_or_abs_path):
+    if os.path.isabs(rel_or_abs_path) and os.path.exists(rel_or_abs_path):
         return rel_or_abs_path
-    if os.path.exists(rel_or_abs_path):
-        return os.path.abspath(rel_or_abs_path)
-    candidate = os.path.join(base_dir, rel_or_abs_path)
-    if os.path.exists(candidate):
-        return os.path.abspath(candidate)
-    parent_candidate = os.path.join(os.path.dirname(base_dir), rel_or_abs_path)
-    if os.path.exists(parent_candidate):
-        return os.path.abspath(parent_candidate)
+    
+    candidates = [
+        rel_or_abs_path,
+        os.path.join(base_dir, rel_or_abs_path),
+        os.path.join(os.path.dirname(base_dir), rel_or_abs_path),
+        os.path.join(os.path.dirname(os.path.dirname(base_dir)), rel_or_abs_path)
+    ]
+    
+    if "best4.pt" in rel_or_abs_path:
+        candidates.extend([
+            os.path.join(os.path.dirname(base_dir), "best4", "best4.pt"),
+            os.path.join(base_dir, "best4", "best4.pt"),
+            os.path.join(os.path.dirname(os.path.dirname(base_dir)), "best4.pt")
+        ])
+    if "bateau_test.jpg" in rel_or_abs_path:
+        candidates.extend([
+            os.path.join(os.path.dirname(base_dir), "images and video", "bateau_test.jpg"),
+            os.path.join(base_dir, "images and video", "bateau_test.jpg")
+        ])
+        
+    for c in candidates:
+        if os.path.exists(c):
+            return os.path.abspath(c)
+            
     return os.path.abspath(rel_or_abs_path)
 
 

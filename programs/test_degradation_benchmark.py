@@ -1,14 +1,4 @@
-"""
-Script: test_degradation_benchmark.py
-Description: Benchmark quantitatif de la robustesse de YOLO face aux dégradations d'images (Dataset de Test)
-Projet: USV Cerema - IMT Atlantique
-Auteur: Guillaume
 
-Ce script évalue de manière rigoureuse et reproductible l'impact de dégradations
-progressives (gouttes d'eau, masquage pixels noirs, flou, résolution, brouillard)
-sur les performances du modèle YOLO (Rappel, Précision, F1-Score, Confiance Moyenne).
-Il exporte les métriques en CSV et trace les courbes d'affaiblissement de performances.
-"""
 
 import os
 import sys
@@ -32,14 +22,14 @@ def parse_args():
     parser.add_argument(
         "--model",
         type=str,
-        default="models/best4.pt",
-        help="Chemin vers le modèle YOLO (.pt) (défaut: models/best4.pt)"
+        default="best4/best4.pt",
+        help="Chemin vers le modèle YOLO (.pt) (défaut: best4/best4.pt)"
     )
     parser.add_argument(
         "--dataset_test",
         type=str,
-        default="../Dataset_Global/test",
-        help="Dossier du split test contenant 'images' et 'labels' (défaut: ../Dataset_Global/test)"
+        default="Dataset_Global/test",
+        help="Dossier du split test contenant 'images' et 'labels' (défaut: Dataset_Global/test)"
     )
     parser.add_argument(
         "--output_dir",
@@ -82,15 +72,37 @@ def parse_args():
 
 
 def resolve_path(base_dir: str, path_str: str) -> str:
-    """Résout un chemin de façon portable."""
-    if os.path.isabs(path_str):
+    """Résout un chemin de façon robuste quel que soit le dossier courant."""
+    if os.path.isabs(path_str) and os.path.exists(path_str):
         return path_str
-    candidate = os.path.join(base_dir, path_str)
-    if os.path.exists(candidate):
-        return os.path.abspath(candidate)
-    parent_candidate = os.path.join(os.path.dirname(base_dir), path_str)
-    if os.path.exists(parent_candidate):
-        return os.path.abspath(parent_candidate)
+    
+    # 1. Vérification directe
+    candidates = [
+        os.path.join(base_dir, path_str),
+        os.path.join(os.path.dirname(base_dir), path_str),
+        os.path.join(os.path.dirname(os.path.dirname(base_dir)), path_str),
+        path_str
+    ]
+    
+    # 2. Heuristiques spécifiques selon le nom
+    filename = os.path.basename(path_str)
+    if "best4.pt" in path_str:
+        candidates.extend([
+            os.path.join(os.path.dirname(base_dir), "best4", "best4.pt"),
+            os.path.join(base_dir, "best4", "best4.pt"),
+            os.path.join(os.path.dirname(os.path.dirname(base_dir)), "best4.pt")
+        ])
+    if "Dataset_Global" in path_str:
+        suffix = path_str.split("Dataset_Global")[-1].lstrip("\\/")
+        candidates.extend([
+            os.path.join(os.path.dirname(os.path.dirname(base_dir)), "Dataset_Global", suffix),
+            os.path.join(os.path.dirname(base_dir), "Dataset_Global", suffix)
+        ])
+        
+    for c in candidates:
+        if os.path.exists(c):
+            return os.path.abspath(c)
+            
     return os.path.abspath(path_str)
 
 
