@@ -63,6 +63,22 @@ detection-for-usv/
 
 ---
 
+## 📊 Performances comparatives : `best4` vs `best4_2` (Split Test)
+
+Évaluation systématique réalisée sur le split de test complet de `Dataset_Global` (644 images et 799 instances de navires annotées) avec IoU = 0.50 :
+
+| Métrique | `best4.pt` *(Initial)* | `best4_2.pt` *(Robuste)* | Évolution | Interprétation pour le drone USV |
+|---|:---:|:---:|:---:|---|
+| **Précision (P)** | **77.90 %** | **79.34 %** | **+1.44 %** 🟢 | Moins de fausses alarmes (faux positifs) déclenchées par l'écume et le clapot. |
+| **Rappel (R)** | **75.44 %** | **76.22 %** | **+0.78 %** 🟢 | Moins de navires manqués (meilleure couverture globale). |
+| **mAP50** | **80.13 %** | **82.40 %** | **+2.27 %** 🟢 | Amélioration nette de la détection standard (seuil IoU 50%). |
+| **mAP50-95** | **56.32 %** | **56.86 %** | **+0.54 %** 🟢 | Boîtes englobantes plus précises sur l'ensemble des seuils IoU. |
+
+> [!TIP]
+> **Conclusion clé :** L'incorporation de 10 % d'images perturbées (embruns, sel, flou, brume, basse résolution) n'a provoqué **aucun oubli catastrophique** (*Catastrophic Forgetting*). Ces dégradations ont servi de régularisation efficace, améliorant les performances du modèle même sur images parfaitement nettes (+2.27% mAP50).
+
+---
+
 ## 🚀 Guide rapide des commandes (depuis `programs/`)
 
 ### 1. Évaluer et comparer les performances nominales
