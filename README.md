@@ -48,6 +48,7 @@ detection-for-usv/
 │   ├── image_degradation.py                # Moteur physique de dégradation maritime (gouttes, sel, flou...)
 │   ├── modify_dataset_robust.py            # Modifie 10% du dataset d'entraînement par transformation
 │   ├── test_degradation_benchmark.py       # Benchmark quantitatif (--model best4 / best4_2)
+│   ├── test_degradation_gouttes.py         # Test visuel spécialisé gouttes d'eau jusqu'à 100% (--compare)
 │   ├── test_degradation_visual.py          # Test qualitatif côte-à-côte (--model best4 / best4_2)
 │   ├── test_model.py                       # Évaluation standard sur Dataset_Global (--model best4 / best4_2)
 │   ├── tracking_test_json.py               # Tracking temps réel avec export JSON (--model best4 / best4_2)
@@ -57,7 +58,8 @@ detection-for-usv/
 │   ├── test.md                             # Guide d'exécution détaillé
 │   └── results_degradation/                # Sorties des bancs de test
 │       ├── benchmark/                      # benchmark_metrics.csv & courbes_performances_degradation.png
-│       └── visual/                         # Planches et comparaisons visuelles unitaires
+│       ├── visual/                         # Planches et comparaisons visuelles unitaires
+│       └── visual_gouttes/                 # Comparaisons dédiées aux gouttes d'eau (100%)
 └── dataset_modification_manifest.json      # Registre complet des 4 545 images modifiées
 ```
 
@@ -119,10 +121,16 @@ python tracking_test_json.py --model best4_2
 
 ### 5. Tests de robustesse aux dégradations marines
 ```bash
-# Test visuel unitaire (génère les comparaisons Clean vs Dégradé)
+# Test visuel généraliste (5 dégradations) :
 python test_degradation_visual.py --model best4_2
 
-# Benchmark quantitatif sur 50 images de test
+# Test visuel spécialisé gouttes d'eau (montée jusqu'à 100% de sévérité) :
+python test_degradation_gouttes.py --model best4_2
+
+# Comparatif visuel direct best4 vs best4_2 sous forte projection de gouttes (100%) :
+python test_degradation_gouttes.py --compare
+
+# Benchmark quantitatif sur 50 images de test :
 python test_degradation_benchmark.py --model best4_2 --sample_size 50
 ```
 

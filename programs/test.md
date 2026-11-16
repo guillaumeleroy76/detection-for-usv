@@ -30,6 +30,7 @@ Tous les scripts qui utilisent un modèle YOLO supportent l'argument `--model` (
 | **`yolo_tracking_test.py`** | Suivi temporel d'embarcations (*multi-object tracking*) avec affichage vidéo live. | `--model` (défaut: `best4`) |
 | **`tracking_test_json.py`** | Suivi temporel avec sérialisation de chaque observation en objet JSON horodaté. | `--model` (défaut: `best4`) |
 | **`test_degradation_visual.py`** | Test qualitatif produisant des planches comparatives côte-à-côte (Clean vs Dégradé). | `--model` (défaut: `best4_2`) |
+| **`test_degradation_gouttes.py`** | Test visuel spécialisé sur les gouttes d'eau (sévérité jusqu'à 100%) avec mode comparatif. | `--model` / `--compare` |
 | **`test_degradation_benchmark.py`** | Benchmark quantitatif mesurant la dégradation du Rappel, Précision et Confiance. | `--model` (défaut: `best4`) |
 | **`train_robust_model.py`** | Lance un fine-tuning à partir d'un modèle de départ sur le jeu enrichi. | `--weights` / `--model` (défaut: `best4`) |
 | **`modify_dataset_robust.py`** | Applique les 5 transformations maritimes aléatoires sur 10 % du dataset d'entraînement. | *(Dataset)* |
@@ -98,9 +99,18 @@ python tracking_test_json.py --model best4_2 --no-show
 
 ### 5. Tests de dégradation d'images
 ```bash
-# Test qualitatif visuel (planche côte-à-côte à 25%, 50%, 75% de sévérité) :
+# Test visuel unitaire généraliste (5 dégradations) :
 python test_degradation_visual.py --model best4_2
 python test_degradation_visual.py --model best4
+
+# Test visuel spécifique aux gouttes d'eau et embruns (jusqu'à 100% de sévérité) :
+python test_degradation_gouttes.py --model best4_2
+
+# Test comparatif côte-à-côte best4 vs best4_2 face aux gouttes (100%) :
+python test_degradation_gouttes.py --compare
+
+# Personnaliser les sévérités de gouttes à tester (ex: 25%, 50%, 75%, 100%) :
+python test_degradation_gouttes.py --severities 0.25 0.50 0.75 1.00
 
 # Benchmark quantitatif sur un échantillon de 50 images :
 python test_degradation_benchmark.py --model best4_2 --sample_size 50

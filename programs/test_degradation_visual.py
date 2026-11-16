@@ -50,8 +50,8 @@ def parse_args():
         "--severities",
         nargs="+",
         type=float,
-        default=[0.25, 0.50, 0.75],
-        help="Niveaux de sévérité à tester (défaut: 0.25 0.50 0.75)"
+        default=[0.25, 0.50, 0.75, 1],
+        help="Niveaux de sévérité à tester (défaut: 0.25 0.50 0.75 1)"
     )
     parser.add_argument(
         "--device",
