@@ -26,6 +26,7 @@ Tous les scripts qui utilisent un modèle YOLO supportent l'argument `--model` (
 |---|---|---|
 | **`live_pi_camera.py`** | Streaming direct de la caméra Raspberry Pi sur le PC (OpenCV, FFplay, détection YOLO temps réel). | `--model` / `--yolo` / `--ffplay` |
 | **`test_model.py`** | Évalue les métriques globales (mAP50, mAP50-95, P, R) sur le jeu de test de `Dataset_Global`. | `--model` (défaut: `best4`) |
+| **`test_confidence_benchmark.py`** | Benchmark et courbes des performances (Précision, Rappel, F1) selon le seuil de confiance (40% à 90%) avec comparatif `best4` vs `best4_2`. | `--model` / `--compare` / `--min-conf` / `--max-conf` |
 | **`donnee_training.py`** | Trace et exporte les 4 courbes d'entraînement (pertes, mAP, P/R, val loss). | `--run` / `--model` (défaut: `after`) |
 | **`yolo_detect.py`** | Détection d'objets sur image fixe, vidéo, caméra USB ou Raspberry Pi Camera. | `--model` (défaut: `best4`) |
 | **`yolo_tracking_test.py`** | Suivi temporel d'embarcations (*multi-object tracking*) avec affichage vidéo live. | `--model` (défaut: `best4`) |
@@ -160,4 +161,21 @@ python train_robust_model.py --weights best4 --epochs 20 --batch 16 --name "best
 
 # Repartir d'un autre modèle existant :
 python train_robust_model.py --weights best4_2 --epochs 10 --batch 16 --name "best4_v3_run"
+```
+
+---
+
+### 7. Benchmark de sensibilité au seuil de confiance (`test_confidence_benchmark.py`)
+```bash
+# Lancer le benchmark comparatif automatique (best4 vs best4_2) de 40% à 90% (pas de 5%) :
+python test_confidence_benchmark.py --model best4_2
+
+# Évaluer uniquement un modèle spécifique sans comparaison :
+python test_confidence_benchmark.py --model best4_2 --no-compare
+
+# Personnaliser la plage de confiance (ex: de 30% à 95% par pas de 5%) :
+python test_confidence_benchmark.py --model best4_2 --min-conf 0.30 --max-conf 0.95 --step 0.05
+
+# Spécifier un autre dossier de sortie pour les graphiques et le tableau CSV :
+python test_confidence_benchmark.py --output-dir mon_dossier_resultats
 ```

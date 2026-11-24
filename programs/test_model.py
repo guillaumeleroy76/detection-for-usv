@@ -1,7 +1,13 @@
 import os
 import sys
 import glob
+import tempfile
 import argparse
+
+# Configuration des dossiers temporaires pour éviter les erreurs d'accès sur Windows
+os.environ.setdefault("YOLO_CONFIG_DIR", os.path.join(tempfile.gettempdir(), "Ultralytics"))
+os.environ.setdefault("MPLCONFIGDIR", os.path.join(tempfile.gettempdir(), "matplotlib"))
+
 import torch
 from ultralytics import YOLO
 
@@ -93,23 +99,39 @@ def resolve_model_path(model_arg: str, base_dir: str = SCRIPT_DIR) -> str:
 
 
 def resolve_data_path(data_arg: str, base_dir: str = SCRIPT_DIR) -> str:
-    """Résout le chemin vers data.yaml."""
+    """Résout le chemin vers data.yaml de manière robuste."""
     if os.path.isabs(data_arg) and os.path.exists(data_arg):
         return os.path.abspath(data_arg)
         
+    cwd = os.getcwd()
+    parent_dir = os.path.dirname(base_dir)
+    grandparent_dir = os.path.dirname(parent_dir)
+    root_proj = os.path.dirname(os.path.dirname(grandparent_dir)) if "cerema" in base_dir else grandparent_dir
+
     candidates = [
         data_arg,
         os.path.join(base_dir, data_arg),
-        os.path.join(os.path.dirname(base_dir), data_arg),
-        os.path.join(os.path.dirname(os.path.dirname(base_dir)), data_arg),
-        os.path.join(os.path.dirname(os.path.dirname(base_dir)), "Dataset_Global", "data.yaml"),
-        os.path.join(os.path.dirname(base_dir), "Dataset_Global", "data.yaml"),
+        os.path.join(parent_dir, data_arg),
+        os.path.join(grandparent_dir, data_arg),
+        os.path.join(grandparent_dir, "Dataset_Global", "data.yaml"),
+        os.path.join(parent_dir, "Dataset_Global", "data.yaml"),
+        os.path.join(cwd, data_arg),
+        os.path.join(cwd, "modèle pi cam", "yolo models lab", "Dataset_Global", "data.yaml"),
+        os.path.join(cwd, "modèle pi cam", "best_final", "dataset", "Dataset_Global", "data.yaml"),
         "Dataset_Global/data.yaml",
         "data.yaml"
     ]
     for c in candidates:
         if os.path.exists(c) and os.path.isfile(c):
             return os.path.abspath(c)
+
+    # Recherche récursive en dernier recours
+    for search_root in [cwd, grandparent_dir, root_proj]:
+        if os.path.exists(search_root):
+            matches = glob.glob(os.path.join(search_root, "**", "Dataset_Global", "data.yaml"), recursive=True)
+            if matches:
+                return os.path.abspath(matches[0])
+                
     return os.path.abspath(data_arg)
 
 
