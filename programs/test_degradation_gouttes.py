@@ -1,11 +1,3 @@
-"""
-Script: test_degradation_gouttes.py
-Description: Banc d'essai visuel spécialisé sur les gouttes d'eau et embruns marins
-             avec montée en sévérité jusqu'à 100% (et comparaison best4 vs best4_2).
-Projet: USV Cerema - IMT Atlantique
-Auteur: Guillaume
-"""
-
 import os
 import sys
 import glob
@@ -131,24 +123,18 @@ def resolve_model_path(model_arg: str, base_dir: str = SCRIPT_DIR) -> str:
     return os.path.abspath(model_arg)
 
 
-def resolve_output_dir(base_dir: str, output_arg: str) -> str:
-    """Résout le dossier de sortie toujours relativement au dossier du script si relatif."""
-    if os.path.isabs(output_arg):
-        return output_arg
-    return os.path.abspath(os.path.join(base_dir, output_arg))
-
-
 def resolve_path(base_dir: str, rel_or_abs_path: str) -> str:
-    """Résout un chemin de fichier image."""
+    """Résout un chemin de fichier ou dossier."""
     if os.path.isabs(rel_or_abs_path) and os.path.exists(rel_or_abs_path):
         return rel_or_abs_path
     
     candidates = [
+        rel_or_abs_path,
         os.path.join(base_dir, rel_or_abs_path),
         os.path.join(os.path.dirname(base_dir), rel_or_abs_path),
+        os.path.join(os.path.dirname(os.path.dirname(base_dir)), rel_or_abs_path),
         os.path.join(os.path.dirname(base_dir), "images and video", os.path.basename(rel_or_abs_path)),
-        os.path.join(base_dir, "images and video", os.path.basename(rel_or_abs_path)),
-        rel_or_abs_path
+        os.path.join(base_dir, "images and video", os.path.basename(rel_or_abs_path))
     ]
         
     for c in candidates:
@@ -404,7 +390,7 @@ def main():
     args = parse_args()
     model_resolved = resolve_model_path(args.model, SCRIPT_DIR)
     image_resolved = resolve_path(SCRIPT_DIR, args.image)
-    output_resolved = resolve_output_dir(SCRIPT_DIR, args.output_dir)
+    output_resolved = resolve_path(SCRIPT_DIR, args.output_dir)
     
     run_droplet_tests(
         model_path=model_resolved,

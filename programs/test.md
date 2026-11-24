@@ -24,11 +24,12 @@ Tous les scripts qui utilisent un modèle YOLO supportent l'argument `--model` (
 
 | Script | Rôle | Paramètre modèle |
 |---|---|---|
+| **`live_pi_camera.py`** | Streaming direct de la caméra Raspberry Pi sur le PC (OpenCV, FFplay, détection YOLO temps réel). | `--model` / `--yolo` / `--ffplay` |
 | **`test_model.py`** | Évalue les métriques globales (mAP50, mAP50-95, P, R) sur le jeu de test de `Dataset_Global`. | `--model` (défaut: `best4`) |
 | **`donnee_training.py`** | Trace et exporte les 4 courbes d'entraînement (pertes, mAP, P/R, val loss). | `--run` / `--model` (défaut: `after`) |
 | **`yolo_detect.py`** | Détection d'objets sur image fixe, vidéo, caméra USB ou Raspberry Pi Camera. | `--model` (défaut: `best4`) |
 | **`yolo_tracking_test.py`** | Suivi temporel d'embarcations (*multi-object tracking*) avec affichage vidéo live. | `--model` (défaut: `best4`) |
-| **`tracking_test_json.py`** | Suivi temporel avec sérialisation de chaque observation en objet JSON horodaté. | `--model` (défaut: `best4`) |
+| **`tracking_test_json.py`** | Suivi temporel avec validation spatio-temporelle (images consécutives, IoU, distance centroïdes) et export JSON filtré. | `--model` / `--min-consecutive` / `--emit-mode` |
 | **`test_degradation_visual.py`** | Test qualitatif produisant des planches comparatives côte-à-côte (Clean vs Dégradé). | `--model` (défaut: `best4_2`) |
 | **`test_degradation_gouttes.py`** | Test visuel spécialisé sur les gouttes d'eau (sévérité jusqu'à 100%) avec mode comparatif. | `--model` / `--compare` |
 | **`test_degradation_benchmark.py`** | Benchmark quantitatif mesurant la dégradation du Rappel, Précision et Confiance. | `--model` (défaut: `best4`) |
@@ -40,7 +41,30 @@ Tous les scripts qui utilisent un modèle YOLO supportent l'argument `--model` (
 
 ## 💻 Exemples détaillés de commandes (depuis `programs/`)
 
-### 1. Évaluation des performances globales (`test_model.py`)
+### 1. Visualisation directe de la caméra Raspberry Pi sur le PC (`live_pi_camera.py`)
+```bash
+# Lancement direct du flux caméra (fenêtre interactive OpenCV) :
+python live_pi_camera.py
+
+# Si connecté par câble Ethernet direct sans Wi-Fi :
+python live_pi_camera.py --host 192.168.137.200
+
+# Lancer avec détection d'embarcations YOLO (best4_2) exécutée en direct sur le GPU du PC :
+python live_pi_camera.py --yolo --model best4_2
+
+# Lancer en mode FFplay (ultra basse latence) :
+python live_pi_camera.py --ffplay
+
+# Raccourcis clavier dans la fenêtre vidéo OpenCV :
+# [Q] ou [Échap] : Quitter et libérer le capteur sur le Pi
+# [S]            : Prendre une photo instantanée (.jpg)
+# [R]            : Démarrer / Arrêter l'enregistrement vidéo (.avi)
+# [D]            : Activer / Désactiver la détection YOLO à la volée
+```
+
+---
+
+### 2. Évaluation des performances globales (`test_model.py`)
 ```bash
 # Tester le modèle initial best4 sur le jeu de test :
 python test_model.py --model best4
@@ -82,17 +106,24 @@ python yolo_detect.py --model best4_2 --source usb0 --thresh 0.4
 
 ---
 
-### 4. Tracking temps réel (`yolo_tracking_test.py` et `tracking_test_json.py`)
+### 4. Tracking temps réel & validation spatio-temporelle (`yolo_tracking_test.py` et `tracking_test_json.py`)
 ```bash
-# Tracking vidéo avec affichage graphique :
+# Tracking vidéo standard avec affichage graphique :
 python yolo_tracking_test.py --model best4_2
 python yolo_tracking_test.py --model best4 --source "../images and video/scene-blender-01.mp4"
 
-# Tracking avec émission du flux JSON horodaté (terminal) :
-python tracking_test_json.py --model best4_2
+# Tracking avec validation spatio-temporelle (filtre anti faux positifs) :
+# Requiert 3 images consécutives avec continuité spatiale (même objet) avant d'émettre le JSON :
+python tracking_test_json.py --model best4_2 --min-consecutive 3
 
-# Mode sans interface graphique (idéal pour exécution embarquée basse consommation) :
-python tracking_test_json.py --model best4_2 --no-show
+# Émission d'un événement JSON unique à chaque nouveau bateau confirmé :
+python tracking_test_json.py --model best4_2 --min-consecutive 5 --emit-mode event
+
+# Mode embarqué sans affichage (headless) sur GPU ou CPU :
+python tracking_test_json.py --model best4_2 --min-consecutive 3 --emit-mode confirmed --no-show
+
+# Ajustement de la tolérance spatiale (pixels max entre 2 centroïdes consécutifs) et du recouvrement IoU :
+python tracking_test_json.py --min-consecutive 3 --max-dist 150 --min-iou 0.2
 ```
 
 ---
