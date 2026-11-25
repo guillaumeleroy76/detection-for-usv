@@ -398,6 +398,15 @@ def main():
     frame_idx = 0
     total_confirmed_events = 0
     
+    window_name = "Suivi USV - Validation Spatio-Temporelle & JSON"
+    target_w = 960
+    vid_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 1000
+    vid_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 600
+    target_h = int(target_w * (vid_h / float(vid_w)))
+    if not args.no_show:
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(window_name, target_w, target_h)
+    
     try:
         while cap.isOpened():
             ret, frame = cap.read()
@@ -541,10 +550,15 @@ def main():
                 )
                 cv2.putText(display_frame, hud_txt, (12, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 255), 1, cv2.LINE_AA)
 
-                cv2.imshow("Suivi USV - Validation Spatio-Temporelle & JSON", display_frame)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    print("🛑 Arrêt manuel par l'utilisateur.")
-                    break
+                if not args.no_show:
+                    if display_frame.shape[1] != target_w:
+                        show_frame = cv2.resize(display_frame, (target_w, target_h), interpolation=cv2.INTER_AREA)
+                    else:
+                        show_frame = display_frame
+                    cv2.imshow(window_name, show_frame)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        print("🛑 Arrêt manuel par l'utilisateur.")
+                        break
                     
     except KeyboardInterrupt:
         print("\n🛑 Arrêt manuel interrompu.")

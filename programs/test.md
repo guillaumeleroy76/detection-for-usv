@@ -31,6 +31,7 @@ Tous les scripts qui utilisent un modèle YOLO supportent l'argument `--model` (
 | **`yolo_detect.py`** | Détection d'objets sur image fixe, vidéo, caméra USB ou Raspberry Pi Camera. | `--model` (défaut: `best4`) |
 | **`yolo_tracking_test.py`** | Suivi temporel d'embarcations (*multi-object tracking*) avec affichage vidéo live. | `--model` (défaut: `best4`) |
 | **`tracking_test_json.py`** | Suivi temporel avec validation spatio-temporelle (images consécutives, IoU, distance centroïdes) et export JSON filtré. | `--model` / `--min-consecutive` / `--emit-mode` |
+| **`test_expert_trigger.py`** | Teste le déclencheur d'experts sur vidéo ou dossier d'images séquentielles (alerte console & HUD dès 5 images d'affilée, rejet des vagues). | `--source` / `--min-consecutive` / `--save` |
 | **`test_degradation_visual.py`** | Test qualitatif produisant des planches comparatives côte-à-côte (Clean vs Dégradé). | `--model` (défaut: `best4_2`) |
 | **`test_degradation_gouttes.py`** | Test visuel spécialisé sur les gouttes d'eau (sévérité jusqu'à 100%) avec mode comparatif. | `--model` / `--compare` |
 | **`test_degradation_benchmark.py`** | Benchmark quantitatif mesurant la dégradation du Rappel, Précision et Confiance. | `--model` (défaut: `best4`) |
@@ -125,6 +126,15 @@ python tracking_test_json.py --model best4_2 --min-consecutive 3 --emit-mode con
 
 # Ajustement de la tolérance spatiale (pixels max entre 2 centroïdes consécutifs) et du recouvrement IoU :
 python tracking_test_json.py --min-consecutive 3 --max-dist 150 --min-iou 0.2
+
+# Test du déclencheur d'experts sur vidéo avec alertes console claires et bandeau visuel HUD (défaut N=5) :
+python test_expert_trigger.py --source "images and video/modelisation_3d_boat.mp4" --min-consecutive 5
+
+# Test sur un dossier d'images séquentielles (ex: frames extraites) :
+python test_expert_trigger.py --source "mon_dossier_images/" --min-consecutive 5
+
+# Exporter une vidéo de démonstration MP4 annotée avec les alertes visuelles :
+python test_expert_trigger.py --source "images and video/modelisation_3d_boat.mp4" --save "demo_experts_declenches.mp4"
 ```
 
 ---
